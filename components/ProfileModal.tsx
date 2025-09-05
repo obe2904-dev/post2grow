@@ -56,8 +56,9 @@ export default function ProfileModal({
       if (error) throw error;
       onSaved?.(firstName, lastName);
       onClose();
-    } catch (e: any) {
-      setError(e?.message ?? "Kunne ikke gemme.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Kunne ikke gemme.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -96,8 +97,8 @@ export default function ProfileModal({
         </div>
 
         <p style={{ color: "#666", marginTop: 6 }}>
-  Valgfrit: Du kan udfylde dit navn nu eller springe over og gøre det senere under <b>Indstillinger</b>.
-</p>
+          Valgfrit: Du kan udfylde dit navn nu eller springe over og gøre det senere under <b>Indstillinger</b>.
+        </p>
 
         <div style={{ marginTop: 12 }}>
           <label style={{ display: "block", fontSize: 14 }}>Fornavn</label>
@@ -117,7 +118,7 @@ export default function ProfileModal({
           />
         </div>
 
-                <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
+        <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
           <button
             onClick={save}
             disabled={saving || !firstName || !lastName}

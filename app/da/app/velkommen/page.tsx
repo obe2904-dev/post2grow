@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../../../lib/supabaseClient";
-import { useRouter } from "next/navigation";
+
+type UserMeta = {
+  first_name?: string;
+  last_name?: string;
+};
 
 export default function Page() {
-  const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -16,45 +19,16 @@ export default function Page() {
 
   useEffect(() => {
     (async () => {
-      const client = supabase();
-      const { data } = await client.auth.getUser();
+      const { data } = await supabase().auth.getUser();
       const user = data.user;
-
       if (!user) {
         setLoading(false);
         return;
       }
-
       setEmail(user.email ?? null);
-      const meta: any = user.user_metadata || {};
+      const meta = (user.user_metadata ?? {}) as UserMeta;
       if (meta.first_name) setFirstName(meta.first_name);
       if (meta.last_name) setLastName(meta.last_name);
-
-      // Hent valg fra modal (gemt i localStorage)
-      const lsAccepted = typeof window !== "undefined" ? localStorage.getItem("p2g_accept_terms") : null;
-      const lsMarketing = typeof window !== "undefined" ? localStorage.getItem("p2g_marketing_optin") : null;
-
-      // Forbered opdateringer (kun hvis mangler på profilen)
-      const updates: Record<string, any> = {};
-      if (lsAccepted === "1" && !meta.accepted_terms_at) {
-        updates.accepted_terms_at = new Date().toISOString();
-        updates.terms_version = "1.0.0";
-      }
-      if (lsMarketing !== null && typeof meta.marketing_opt_in === "undefined") {
-        updates.marketing_opt_in = lsMarketing === "1";
-      }
-
-      // Opdater brugerens metadata hvis nødvendigt
-      if (Object.keys(updates).length > 0) {
-        await client.auth.updateUser({ data: updates });
-      }
-
-      // Ryd nøglerne, så vi ikke anvender igen
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("p2g_accept_terms");
-        localStorage.removeItem("p2g_marketing_optin");
-      }
-
       setLoading(false);
     })();
   }, []);
@@ -71,9 +45,9 @@ export default function Page() {
       });
       if (error) throw error;
       setSaved(true);
-      router.push("/da/app");
-    } catch (e: any) {
-      setError(e?.message ?? "Kunne ikke gemme.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Kunne ikke gemme.";
+      setError(msg);
     } finally {
       setSaving(false);
     }

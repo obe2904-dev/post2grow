@@ -8,7 +8,7 @@ type Mode = "choose" | "email"; // step 1 (valg) → step 2 (indtast e-mail)
 
 export default function SignupModal({ open, onClose }: Props) {
   const [accepted, setAccepted] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false); // frivillig tilmelding
   const [mode, setMode] = useState<Mode>("choose");
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -20,6 +20,7 @@ export default function SignupModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     setAccepted(false);
+    setMarketingOptIn(false);
     setMode("choose");
     setEmail("");
     setSending(false);
@@ -41,17 +42,26 @@ export default function SignupModal({ open, onClose }: Props) {
     if (e.target === dialogRef.current) onClose();
   };
 
+  function rememberConsentsInLocalStorage() {
+    try {
+      localStorage.setItem("p2g_accept_terms", "1");
+      localStorage.setItem("p2g_marketing_optin", marketingOptIn ? "1" : "0");
+    } catch {
+      // ignore storage errors (private mode etc.)
+    }
+  }
+
   async function handleGoogle() {
     if (!accepted) return;
     try {
-        localStorage.setItem("p2g_accept_terms", "1");
-        localStorage.setItem("p2g_marketing_optin", marketingOptIn ? "1" : "0");
+      rememberConsentsInLocalStorage();
       await supabase().auth.signInWithOAuth({
-  provider: "google",
-  options: { redirectTo: `${window.location.origin}/da/app` }, // <-- ændret
-});
-    } catch (e: any) {
-      alert(e?.message ?? "Kunne ikke starte Google-login.");
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/da/app` },
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Kunne ikke starte Google-login.";
+      alert(msg);
     }
   }
 
@@ -60,14 +70,16 @@ export default function SignupModal({ open, onClose }: Props) {
     setSending(true);
     setError(null);
     try {
+      rememberConsentsInLocalStorage();
       const { error } = await supabase().auth.signInWithOtp({
-  email,
-  options: { emailRedirectTo: `${window.location.origin}/da/app` }, // <-- ændret
-});
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/da/app` },
+      });
       if (error) throw error;
       setSent(true);
-    } catch (e: any) {
-      setError(e?.message ?? "Kunne ikke sende magic link.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Kunne ikke sende magic link.";
+      setError(msg);
     } finally {
       setSending(false);
     }
@@ -103,6 +115,7 @@ export default function SignupModal({ open, onClose }: Props) {
           width: "100%",
           maxWidth: 560,
           background: "#fff",
+          color: "#111",
           borderRadius: 16,
           padding: 20,
           boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
@@ -116,7 +129,7 @@ export default function SignupModal({ open, onClose }: Props) {
           <button onClick={onClose} aria-label="Luk" style={{ padding: 8, borderRadius: 8 }}>✕</button>
         </div>
 
-        {/* Checkbox: krav før knapper virker */}
+        {/* Obligatorisk accept */}
         <label style={{ display: "flex", gap: 10, marginTop: 12, fontSize: 14, alignItems: "start" }}>
           <input
             type="checkbox"
@@ -137,25 +150,26 @@ export default function SignupModal({ open, onClose }: Props) {
           </span>
         </label>
 
+        {/* Frivillig tilmelding */}
         <label style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 14, alignItems: "start" }}>
-  <input
-    type="checkbox"
-    checked={marketingOptIn}
-    onChange={(e) => setMarketingOptIn(e.target.checked)}
-    style={{ marginTop: 4 }}
-  />
-  <span>
-    Ja tak – tilmeld mig mails med vigtige informationer og tips til brugen af Post2Grow.
-    Du kan altid afmelde igen.
-  </span>
-</label>
+          <input
+            type="checkbox"
+            checked={marketingOptIn}
+            onChange={(e) => setMarketingOptIn(e.target.checked)}
+            style={{ marginTop: 4 }}
+          />
+          <span>
+            Ja tak – tilmeld mig mails med vigtige informationer og tips til brugen af Post2Grow.
+            Du kan altid afmelde igen.
+          </span>
+        </label>
 
         {mode === "choose" && (
           <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
             <button
               disabled={!accepted}
               onClick={handleGoogle}
-              style={{ ...btn(accepted), border: "1px solid #ddd", background: "#fff" }}
+              style={{ ...btn(accepted), border: "1px solid #ddd", background: "#fff", color: "#111" }}
             >
               Opret med Google
             </button>
@@ -178,7 +192,15 @@ export default function SignupModal({ open, onClose }: Props) {
               placeholder="din@mail.dk"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, marginTop: 6 }}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                marginTop: 6,
+                color: "#111",
+                background: "#fff",
+              }}
             />
 
             <button
@@ -193,7 +215,10 @@ export default function SignupModal({ open, onClose }: Props) {
             {error && <p style={{ marginTop: 10, color: "#c00" }}>{error}</p>}
 
             <div style={{ marginTop: 10, fontSize: 14 }}>
-              <button onClick={() => setMode("choose")} style={{ textDecoration: "underline", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+              <button
+                onClick={() => setMode("choose")}
+                style={{ textDecoration: "underline", background: "none", border: "none", padding: 0, cursor: "pointer", color: "#111" }}
+              >
                 ← Tilbage
               </button>
             </div>

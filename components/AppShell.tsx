@@ -7,6 +7,15 @@ import ProfileModal from "./ProfileModal";
 
 type Props = { children: React.ReactNode };
 
+type UserMeta = {
+  first_name?: string;
+  last_name?: string;
+  accepted_terms_at?: string;
+  terms_version?: string;
+  marketing_opt_in?: boolean;
+  plan?: "Gratis" | "Standard+" | "Premium" | string;
+};
+
 export default function AppShell({ children }: Props) {
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
@@ -18,12 +27,11 @@ export default function AppShell({ children }: Props) {
   const searchParams = useSearchParams();
   const oauthError = searchParams?.get("error");
 
-  // --- 1) HÅNDTER OAUTH-FEJL ET STED (ingen flicker, direkte tilbage til /da/cafe)
+  // 1) Håndter OAuth-fejl (fx "Cancel") uden flicker → tilbage til /da/cafe
   useEffect(() => {
     if (!oauthError) return;
     (async () => {
-      await supabase().auth.signOut();             // ryd evt. session
-      // fjern ?error=... fra adressen for en ren URL
+      await supabase().auth.signOut();
       if (typeof window !== "undefined") {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -31,11 +39,12 @@ export default function AppShell({ children }: Props) {
     })();
   }, [oauthError, router]);
 
-  // --- 2) HOVED-LOAD: beskyt ruter, sæt topbar-data, anvend accept/marketing, evt. profil-modal
+  // 2) Hoved-load: beskyt ruter, sæt topbar-data, anvend accept/marketing, evt. profil-modal
   useEffect(() => {
-  if (oauthError) return; // vent til OAuth-fejl-effekten har redirectet
-  (async () => {
-    const client = supabase();
+    if (oauthError) return; // vent, hvis vi er ved at redirecte pga. fejl
+
+    (async () => {
+      const client = supabase();
       const { data } = await client.auth.getUser();
       const user = data.user;
 
@@ -45,7 +54,7 @@ export default function AppShell({ children }: Props) {
         return;
       }
 
-      const meta: any = user.user_metadata || {};
+      const meta = (user.user_metadata ?? {}) as UserMeta;
 
       // Topbar-data
       const f = meta.first_name || "";
@@ -60,7 +69,7 @@ export default function AppShell({ children }: Props) {
       const lsMarketing =
         typeof window !== "undefined" ? localStorage.getItem("p2g_marketing_optin") : null;
 
-      const updates: Record<string, any> = {};
+      const updates: Record<string, unknown> = {};
       if (lsAccepted === "1" && !meta.accepted_terms_at) {
         updates.accepted_terms_at = new Date().toISOString();
         updates.terms_version = "1.0.0";
